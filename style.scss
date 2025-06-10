@@ -19,7 +19,7 @@ html {
 
 body {
 	background: $white;
-  font: 18px/1.4 $helvetica;
+  font: 14px/1.4 $helvetica;
   color: $darkGray;
 }
 
@@ -151,7 +151,7 @@ img {
 //
 
 .wrapper-masthead {
-  margin-bottom: 80px;
+  margin-bottom: 20px;
 }
 
 .masthead {
@@ -253,18 +253,25 @@ nav {
 
 .post {
   blockquote {
-    margin: 1.8em .8em;
+    margin: 0;
     border-left: 2px solid $gray;
-    padding: 0.1em 1em;
+    padding-left: 1em;
     color: $gray;
-    font-size: 22px;
-    font-style: italic;
   }
 
   .comments {
     margin-top: 10px;
   }
 
+  .entry {
+    margin-bottom: 6px;
+  }
+/*
+  pre {
+    font-family: $georgia;
+    color: $gray;
+  }
+*/
 /*
   .read-more {
     text-transform: uppercase;
@@ -282,7 +289,7 @@ nav {
 }
 
 footer {
-  padding: 20px 0;
+  padding: 40px 0;
   text-align: center;
 }
 

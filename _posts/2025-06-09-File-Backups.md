@@ -1,6 +1,7 @@
 ---
 layout: post
-title: File backup solution with file container. Efficent for network transfers and file corruption restoration. Testable.
+title: Splittable file container backup solution
+summary: Backup process utilizing a splittable file container that is more efficent for network transfers and file corruption restoration. In addition to being testable.
 ---
 
 # Catalyst
@@ -40,26 +41,26 @@ The zip formats generally support splitting the file into smaller chunks, which 
 **Many** options to create and mount Virtual Disk images on all Operating Systems. In this example utilized a [Docker image of Ubuntu noble 24.04](https://hub.docker.com/_/ubuntu/tags?name=noble) using [QEMU](https://qemu-project.gitlab.io/qemu/about/index.html). This didn't work as well as I'd hoped for providing isolation because I had to run the container in `--privileged` mode. See [Docker references](#docker) below for detailed explanation.
 
 Utilizing this package:
-```Shell
+```shell
 apt-get install qemu-utils
 ```
 
 Then creating a VMDK with
 command:
-```Shell
+```shell
 qemu-img create -f vmdk -o subformat=twoGbMaxExtentFlat Demo_6G.vmdk 6G
 ```
 output:
-```ShellSession
+```console
 Formatting 'Demo_6G.vmdk', fmt=vmdk size=6442450944 compat6=off hwversion=undefined subformat=twoGbMaxExtentFlats
 ```
 
 command:
-```Shell
+```shell
 ll -h Demo_6G*
 ```
 output:
-```ShellSession
+```console
 -rw-r--r-- 1 root root 2.0G Jun 10 16:17 Demo_6G-f001.vmdk
 -rw-r--r-- 1 root root 2.0G Jun 10 16:17 Demo_6G-f002.vmdk
 -rw-r--r-- 1 root root 2.0G Jun 10 16:17 Demo_6G-f003.vmdk
@@ -69,7 +70,7 @@ output:
 Because multiple files are created, and depending on the size, it could be a lot of files, VMDK created in a subdirectory.
 
 command:
-```Shell
+```shell
 parentdir="/mnt/vmdk" && vmdkname="Demo_6G" && size="6" && sizeformat="G"
 if [ ! -d ${parentdir}/${vmdkname} ]; then mkdir --verbose ${parentdir}/${vmdkname}; fi && \
 qemu-img create -f vmdk -o subformat=twoGbMaxExtentFlat ${parentdir}/${vmdkname}/${vmdkname}.vmdk ${size}${sizeformat} && \
@@ -77,7 +78,7 @@ extents128=$( expr "$size" '*' 8 ) && echo "Requires $extents128 extents @ 128M"
 ```
 
 output:
-```ShellSession
+```console
 mkdir: created directory '/mnt/vmdk/Demo_6G'
 Formatting '/mnt/vmdk/Demo_6G/Demo_6G.vmdk', fmt=vmdk size=6442450944 compat6=off hwversion=undefined subformat=twoGbMaxExtentFlat
 Requires 48 extents @ 128M
@@ -99,7 +100,7 @@ If I didn't use [QEMU](https://qemu-project.gitlab.io/qemu/about/index.html) on 
 
 I **VERY unsucessfuly TRIED** utilizing Sparse files initally. Sparse files would have obvious advantages of not having to pre-allocate space. However, through a lot of _frustrating_ trials and tribulations, I gave up and switched to Flat. Performance was just unacceptable.
 I didn't get to the level of watching the block IO requests, but I tried watching the size increase during a transfer to a sparse extent/disk.
-```Shell
+```shell
 for i in $(seq -f "%03g" 1 100); do ls -ltr | tail -1; sleep .5; ls -ltr | tail -1; done
 ```
 
@@ -110,25 +111,26 @@ Disk Images and the chosen filesystem can pretty easily be expanded as necessary
 ## Mounting
 
 Utilizing these packages:
-```Shell
+```shell
 apt-get install kmod
 apt-get install qemu-utils
 apt-get install nbd-client
 ```
 
 Must once run after start of Operating System
-```Shell
+```shell
 modprobe nbd
 ```
 
+Then attempt to mount
 
-```Shell
+```shell
 #Connect IF not already connected.
 nbd0_mount=`nbd-client -check /dev/nbd0`; if [ ${#nbd0_mount} -eq 0 ]; then qemu-nbd --connect=/dev/nbd0 ${parentdir}/${vmdkname}/${vmdkname}.vmdk; else echo "ERROR - ALREADY CONNECTED"; ps -ef | grep -E "qemu|/dev/nbd" | grep -v "grep"; fi
 ```
 No output will be produced if it connected.
 
-Can be verified with `nbd-client -check /dev/nbd0` output `1110701`
+Can be verified with `nbd-client -check /dev/nbd0` output `1110701`  
 or `ps -ef | grep -E "qemu|/dev/nbd" | grep -v "grep"` output: `root        7714       1  0 16:39 ?        00:00:00 qemu-nbd --connect=/dev/nbd0 /mnt/vmdk/Demo_6G/Demo_6G.vmdk`
 
 ## Utilizing 
@@ -142,20 +144,20 @@ An ideal scenario would be in a Linux environment if you have a CoW filesystem s
 # Split File
 
 The ability to split the container into smaller chunks was a key requirement for several reasons
-- As mentioned in the [Catalyst](#catalyst), file corruption on a large file requires remediation on the entire LARGE file. 
+- As mentioned in the [Catalyst](#catalyst), file corruption on a large file requires remediation on the entire LARGE file.
 - My experience has generally been that small files, especially when multithreaded, are much faster and better to transfer over a WAN and/or to Cloud storage.
-    - Similar to the file corruption, if there is an issue with tranferring, especially if transfer resuming isn't supported, the small files provide a way to resume.
+    - Similar to the file corruption, if there is an issue with tranferring, especially if transfer resuming isn't supported, the small files provide a way to resume
     - Few file transfer programs feature multithreading of a single file
 - In resource constrained sitautions, many small disks can be used
 
 # Encryption
 
-[Data-at-rest encryption](https://wiki.archlinux.org/title/Data-at-rest_encryption) was an important consideration. A feature I found critical in the [Comparison table](https://wiki.archlinux.org/title/Data-at-rest_encryption#Comparison_table):
+[Data-at-rest encryption](https://wiki.archlinux.org/title/Data-at-rest_encryption) was an important consideration. A feature I found critical in the [Comparison table](https://wiki.archlinux.org/title/Data-at-rest_encryption#Comparison_table):  
+Support for (manually) resizing the encrypted block device in-place  
 
->Support for (manually) resizing the encrypted block device in-place
->| [LUKS](https://gitlab.com/cryptsetup/cryptsetup/) | [VeraCrypt](https://veracrypt.io/en/Home.html) | [ZFS](https://openzfs.github.io/openzfs-docs/Project%20and%20Community/index.html#project-and-community) |
->| --- | --- | --- | 
->| Yes | No | Yes |
+| [LUKS](https://gitlab.com/cryptsetup/cryptsetup/) | [VeraCrypt](https://veracrypt.io/en/Home.html) | [ZFS](https://openzfs.github.io/openzfs-docs/Project%20and%20Community/index.html#project-and-community) |
+| ------------------------------------------------- | ---------------------------------------------- | -------------------------------------------------------------------------------------------------------- | 
+| Yes | No | Yes |
 
 This table is on the ArchLinux Wiki, so it doesn't address Windows. But this advantage would apply to BitLocker over VeraCrypt as well.
 
@@ -170,22 +172,22 @@ Eventually I found the disk format specifications, but to initially test the fea
 >2G = 1024 x 2 = 2048. 2048 + 128 = 2176.
 
 command:
-```Shell
+```shell
 qemu-img create -f vmdk -o subformat=twoGbMaxExtentFlat 2_125G.vmdk 2176M
 ```
 
 output:
-```ShellSession
+```console
 Formatting '2_125G.vmdk', fmt=vmdk size=2281701376 compat6=off hwversion=undefined subformat=twoGbMaxExtentFlat
 ```
 
 command:
-```Shell
+```shell
 ll -h  2_125G*
 ```
 
 output:
-```ShellSession
+```console
 -rw-r--r-- 1 root root 2.0G Jun 10 17:14 2_125G-f001.vmdk
 -rw-r--r-- 1 root root 128M Jun 10 17:14 2_125G-f002.vmdk
 -rw-r--r-- 1 root root  388 Jun 10 17:14 2_125G.vmdk
@@ -199,13 +201,13 @@ So 9 extents are necessary. I copied `2_125G-f002.vmdk` to `2_125G-f001.vmdk` th
 Then I had to edit the Descriptor File `2_125G.vmdk`.
 
 Changing
-```Shell
+```shell
 # Extent description
 RW 4194304 FLAT "2_125G-f001.vmdk" 0
 RW 262144 FLAT "2_125G-f002.vmdk" 0
 ```
 to
-```Shell
+```shell
 # Extent description
 RW 262144 FLAT "2_125G-f001.vmdk" 0
 RW 262144 FLAT "2_125G-f002.vmdk" 0
@@ -225,7 +227,7 @@ Initially the `2_125G-f002.vmdk` was copied to `128M_extent_template.vmdk` for u
 If I were doing this on Windows, I'd probably have stuck with the template file. Also, if I was using Sparse extents, I'd have stuck with the template.
 
 ## vmdk_extent_generate.sh
-```Shell
+```shell
 startnumber=1
 totalnumber=9
 vmdkname=2_125G
@@ -247,7 +249,7 @@ mv --verbose ./${vmdkname}.new ./${vmdkname}.vmdk
 Executing this script
 
 output:
-```ShellSession
+```console
 root@lxc:/mnt/vmdk/2_125G# ../scripts/vmdk_extent_generate.sh
 16+0 records in
 16+0 records out
@@ -281,7 +283,7 @@ renamed './2_125G.new' -> './2_125G.vmdk'
 
 Preventing the rename (mv) at the end of the script (what I did during development) allows to see the changes being made to the file.
 
-```
+```diff
 root@lxc:/mnt/vmdk/2_125G# diff --side-by-side --report-identical-files 2_125G.vmdk 2_125G.new
 # Disk DescriptorFile                                           # Disk DescriptorFile
 version=1                                                       version=1
@@ -323,7 +325,7 @@ These are SOME of the resources I used to learn and blindly meander through this
 - [VMware Virtual Disks - Virtual Disk Format 1.1](https://web.archive.org/web/20191016053703/https://www.vmware.com/app/vmdk/?src=vmdk)
 - [Virtual Disk Types](https://vdc-download.vmware.com/vmwb-repository/dcr-public/2bba164b-4115-4279-9c99-40f4c14319ad/03a845fc-5345-45de-9a27-31e868d6e751/doc/vddkDataStruct.5.3.html)
 - [VMDK Handbook - Basics](https://sanbarrow.com/vmdk-basics.html)
-## Qemu
+## QEMU
 - [Mounting VMDK disk image](https://stackoverflow.com/a/49000377)
 ## Docker
 - [Runtime privilege and Linux capabilities](https://docs.docker.com/engine/containers/run/#runtime-privilege-and-linux-capabilities)
