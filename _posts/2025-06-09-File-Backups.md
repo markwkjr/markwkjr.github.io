@@ -46,20 +46,16 @@ apt-get install qemu-utils
 ```
 
 Then creating a VMDK with
-command:
 ```shell
 qemu-img create -f vmdk -o subformat=twoGbMaxExtentFlat Demo_6G.vmdk 6G
 ```
-output:
 ```console
 Formatting 'Demo_6G.vmdk', fmt=vmdk size=6442450944 compat6=off hwversion=undefined subformat=twoGbMaxExtentFlats
 ```
 
-command:
 ```shell
 ll -h Demo_6G*
 ```
-output:
 ```console
 -rw-r--r-- 1 root root 2.0G Jun 10 16:17 Demo_6G-f001.vmdk
 -rw-r--r-- 1 root root 2.0G Jun 10 16:17 Demo_6G-f002.vmdk
@@ -69,22 +65,19 @@ output:
 
 Because multiple files are created, and depending on the size, it could be a lot of files, VMDK created in a subdirectory.
 
-command:
 ```shell
 parentdir="/mnt/vmdk" && vmdkname="Demo_6G" && size="6" && sizeformat="G"
 if [ ! -d ${parentdir}/${vmdkname} ]; then mkdir --verbose ${parentdir}/${vmdkname}; fi && \
 qemu-img create -f vmdk -o subformat=twoGbMaxExtentFlat ${parentdir}/${vmdkname}/${vmdkname}.vmdk ${size}${sizeformat} && \
 extents128=$( expr "$size" '*' 8 ) && echo "Requires $extents128 extents @ 128M"
 ```
-
-output:
 ```console
 mkdir: created directory '/mnt/vmdk/Demo_6G'
 Formatting '/mnt/vmdk/Demo_6G/Demo_6G.vmdk', fmt=vmdk size=6442450944 compat6=off hwversion=undefined subformat=twoGbMaxExtentFlat
 Requires 48 extents @ 128M
 ```
 
-The echo with the number of extents will be addressed in [Undocumented VMDK Splitting](#undocumented-vmdk-splitting). It can be ignored otherwise.
+The echo with the number of extents will be addressed in [Custom Extent Size VMDK Splitting](#custom-extent-size-vmdk-splitting). It can be ignored otherwise.
 
 If I didn't use [QEMU](https://qemu-project.gitlab.io/qemu/about/index.html) on a Linux machine, I'd likely have used [VBoxManage createmedium](https://www.virtualbox.org/manual/ch08.html#vboxmanage-createmedium) on a Windows 11 machine.
 
@@ -162,7 +155,7 @@ Support for (manually) resizing the encrypted block device in-place
 
 This table is on the ArchLinux Wiki, so it doesn't address Windows. But this advantage would apply to BitLocker over VeraCrypt as well.
 
-# Undocumented VMDK Splitting
+# Custom Extent Size VMDK Splitting
 
 The 2GB chunks that [twoGbMaxExtentFlat](https://web.archive.org/web/20191016053703/https://www.vmware.com/app/vmdk/?src=vmdk) provides is an advantage. For the reasons listed in [Split File](#split-file), I'd much prefer to have 50 count files of 2GB size than a single 100GB file. 
 However, 2GB is still large. I thought 128 - 512 MB would be more in the range I'd prefer.
@@ -172,22 +165,16 @@ The disk format type is `twoGbMax` **Max** not **Must be**. So I hypothesized th
 Eventually I found the disk format specifications, but to initially test the feasability without committing the time to better understand, created the size I desired (128M) plus 2G.
 >2G = 1024 x 2 = 2048. 2048 + 128 = 2176.
 
-command:
 ```shell
 qemu-img create -f vmdk -o subformat=twoGbMaxExtentFlat 2_125G.vmdk 2176M
 ```
-
-output:
 ```console
 Formatting '2_125G.vmdk', fmt=vmdk size=2281701376 compat6=off hwversion=undefined subformat=twoGbMaxExtentFlat
 ```
 
-command:
 ```shell
 ll -h  2_125G*
 ```
-
-output:
 ```console
 -rw-r--r-- 1 root root 2.0G Jun 10 17:14 2_125G-f001.vmdk
 -rw-r--r-- 1 root root 128M Jun 10 17:14 2_125G-f002.vmdk
@@ -249,9 +236,10 @@ mv --verbose ./${vmdkname}.new ./${vmdkname}.vmdk
 ```
 Executing this script
 
-output:
+```shell
+../scripts/vmdk_extent_generate.sh
+```
 ```console
-root@lxc:/mnt/vmdk/2_125G# ../scripts/vmdk_extent_generate.sh
 16+0 records in
 16+0 records out
 134217728 bytes (134 MB, 128 MiB) copied, 0.088087 s, 1.5 GB/s
@@ -284,8 +272,10 @@ renamed './2_125G.new' -> './2_125G.vmdk'
 
 Preventing the rename (mv) at the end of the script (what I did during development) allows to see the changes being made to the file.
 
+```shell
+diff --side-by-side --report-identical-files 2_125G.vmdk 2_125G.new
+```
 ```diff
-root@lxc:/mnt/vmdk/2_125G# diff --side-by-side --report-identical-files 2_125G.vmdk 2_125G.new
 # Disk DescriptorFile                                           # Disk DescriptorFile
 version=1                                                       version=1
 CID=dc0e0f14                                                    CID=dc0e0f14
@@ -322,17 +312,21 @@ These are SOME of the resources I used to learn and blindly meander through this
 ## VeraCrypt
 - [Create an encrypted container that is split over many files #1047](https://github.com/veracrypt/VeraCrypt/issues/1047)
     - [This is already quite trivial to do by assigning the containers as loop devices, then building a linear raid out of those loop devices](https://github.com/veracrypt/VeraCrypt/issues/1047#issuecomment-1553157538)
+
 ## VMDK
 - [VMware Virtual Disks - Virtual Disk Format 1.1](https://web.archive.org/web/20191016053703/https://www.vmware.com/app/vmdk/?src=vmdk)
 - [Virtual Disk Types](https://vdc-download.vmware.com/vmwb-repository/dcr-public/2bba164b-4115-4279-9c99-40f4c14319ad/03a845fc-5345-45de-9a27-31e868d6e751/doc/vddkDataStruct.5.3.html)
 - [VMDK Handbook - Basics](https://sanbarrow.com/vmdk-basics.html)
+
 ## QEMU
 - [Mounting VMDK disk image](https://stackoverflow.com/a/49000377)
+
 ## Docker
 - [Runtime privilege and Linux capabilities](https://docs.docker.com/engine/containers/run/#runtime-privilege-and-linux-capabilities)
 - [Linux user namespace on all containers](https://docs.docker.com/security/for-admins/hardened-desktop/enhanced-container-isolation/features-benefits/#privileged-containers-are-also-secured)
 - [Docker loading kernel modules](https://stackoverflow.com/a/33017933)
 - [nbd-client and nbd-server in docker container: "Couldn't resolve the nbd netlink family"](https://unix.stackexchange.com/a/685020)
+
 ## ZFS
 - [Is it possible to split stream created by "zfs send" between multiple harddrives?](https://www.reddit.com/r/zfs/comments/oeq17q/is_it_possible_to_split_stream_created_by_zfs/?utm_source=share&utm_medium=web3x&utm_name=web3xcss&utm_term=1&utm_content=share_button)
 - [Trying to zfs send my whole filesystem to AWS/S3 but running into maximum 5TB single file size issue. How do I work around this?](https://www.reddit.com/r/zfs/comments/8zxjdw/trying_to_zfs_send_my_whole_filesystem_to_awss3/?utm_source=share&utm_medium=web3x&utm_name=web3xcss&utm_term=1&utm_content=share_button)
