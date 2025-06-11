@@ -160,10 +160,6 @@ Support for (manually) resizing the encrypted block device in-place
 | Yes | No | Yes |
 
 
-| LUKS | VeraCrypt | ZFS |
-|------|-----------|-----|
-| Yes  | No        | Yes |
-
 This table is on the ArchLinux Wiki, so it doesn't address Windows. But this advantage would apply to BitLocker over VeraCrypt as well.
 
 # Undocumented VMDK Splitting
