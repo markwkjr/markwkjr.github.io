@@ -49,13 +49,14 @@ Then creating a VMDK with
 ```shell
 qemu-img create -f vmdk -o subformat=twoGbMaxExtentFlat Demo_6G.vmdk 6G
 ```
+
 ```console
 Formatting 'Demo_6G.vmdk', fmt=vmdk size=6442450944 compat6=off hwversion=undefined subformat=twoGbMaxExtentFlats
 ```
 
 ```shell
 ll -h Demo_6G*
-```
+```  
 ```console
 -rw-r--r-- 1 root root 2.0G Jun 10 16:17 Demo_6G-f001.vmdk
 -rw-r--r-- 1 root root 2.0G Jun 10 16:17 Demo_6G-f002.vmdk
