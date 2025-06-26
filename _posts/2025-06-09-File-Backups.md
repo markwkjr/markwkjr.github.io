@@ -120,7 +120,13 @@ Then attempt to mount
 
 ```shell
 #Connect IF not already connected.
-nbd0_mount=`nbd-client -check /dev/nbd0`; if [ ${#nbd0_mount} -eq 0 ]; then qemu-nbd --connect=/dev/nbd0 ${parentdir}/${vmdkname}/${vmdkname}.vmdk; else echo "ERROR - ALREADY CONNECTED"; ps -ef | grep -E "qemu|/dev/nbd" | grep -v "grep"; fi
+nbd0_mount=`nbd-client -check /dev/nbd0`; 
+if [ ${#nbd0_mount} -eq 0 ]; then 
+    qemu-nbd --connect=/dev/nbd0 ${parentdir}/${vmdkname}/${vmdkname}.vmdk; 
+else 
+    echo "ERROR - ALREADY CONNECTED"; 
+    ps -ef | grep -E "qemu|/dev/nbd" | grep -v "grep"; 
+fi 
 ```
 No output will be produced if it connected.
 
